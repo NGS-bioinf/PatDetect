@@ -26,3 +26,29 @@ To obtain and set up the nt database for the Krakenuniq and Centrifuge tools, fo
 
   
 **NOTE:** Make sure you have enough disk space. For optimum performance, 1TB RAM and 32 CPUs are required. 
+
+## Example of use
+Before every run double check workflow parameters and path to samples and databases.
+Once set, simply run `bash run_workflow.sh`
+### Short PE reads/contigs classification
+In terminal, navigate to the `short_reads_classification/` folder, which contains  `config.yml`,`run_workflow.sh` and `Snakefile`.
+Workflow performs quality check, trimming, host removal, assembly, read/contig classification and visualization preparation of results.
+Before run, set the parameters in `config.yml` file and `run_workflow.sh` script. Check PE reads name (must end with "_R1.fastq.gz" and "_R2.fastq.gz").
+Host reference genome must be indexed (use `bowtie2-build` command). 
+
+**Suggestion:** Before run use "-n" flag in shell scripts, to perform dry-run.
+
+### Long reads/contigs classification
+In terminal, navigate to the `long_reads_classification/` folder, which contains  `config.yml`,`run_workflow.sh` and `Snakefile`.
+Workflow performs quality check, trimming, host removal, assembly, polishing, read/contig classification and visualization preparation of results.
+Before run, set the parameters in `config.yml` file and `run_workflow.sh` script. 
+
+**IMPORTANT:** Check input path (the defined path must end above the folder containing reads).
+For example:
+if raw reads are located in `../path_to_sequence_run/fastq_pass/barcode01`, the defined path in `config.yml` must be:
+```
+../path_to_sequence_run/fastq_pass
+```
+Rename folder if you wish (e.g. rename "barcode01" to "sample01")
+
+**Suggestion:** Before run use "-n" flag in shell scripts, to perform dry-run.
