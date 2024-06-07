@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%help 
+	centrifuge container
+
+%labels
+	Maintained by asuljic 
+
+%environment
+	LANG=C.UTF-8
+	LC_ALL=C.UTF-8
+	export LANG LC_ALL
+
+%post
+	apt-get -y update && apt-get -y upgrade
+	apt autoremove
+    apt install --fix-missing --install-recommends -y lsb-release curl wget apt-transport-https zlib1g-dev tar bzip2 gzip xz-utils unzip ca-certificates git make gcc libbz2-dev libssl-dev default-jdk default-jre build-essential ncbi-blast+ python-is-python3
+
+  	cd /opt
+  	git clone https://github.com/DaehwanKimLab/centrifuge
+	cd centrifuge
+	make
+	make install prefix=/usr/local
+
+%environment
+  	export PATH=/opt/centrifuge:$PATH
