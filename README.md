@@ -52,3 +52,27 @@ if raw reads are located in `../path_to_sequence_run/fastq_pass/barcode01`, the 
 Rename folder if you wish (e.g. rename "barcode01" to "sample01")
 
 **Suggestion:** Before run use "-n" flag in shell scripts, to perform dry-run.
+
+## Output
+```
+Short PE reads workflow output structure:
+Short PE reads/contigs classification:
+
+Long reads workflow output structure:
+Long reads/contigs classification:
+
+```
+## List of tools used
+[FastQC](https://github.com/s-andrews/FastQC)
+[MultiQC](https://github.com/ewels/MultiQC)
+[NanoPack](https://github.com/wdecoster/nanopack)
+[SPAdes](https://github.com/ablab/spades)
+[Flye](https://github.com/fenderglass/Flye)
+[medaka](https://github.com/nanoporetech/medaka)
+[seqtk](https://github.com/lh3/seqtk)
+[KrakenUniq](https://github.com/fbreitwieser/krakenuniq)
+[Krona](https://github.com/marbl/Krona)
+[Pavian](https://github.com/fbreitwieser/pavian)
+[viralVerify](https://github.com/ablab/viralVerify)
+[DIAMOND](https://github.com/bbuchfink/diamond)
+[MEGAN](https://github.com/husonlab/megan-ce)
