@@ -57,11 +57,211 @@ Rename folder if you wish (e.g. rename "barcode01" to "sample01")
 ## Output
 ```
 Short PE reads workflow output structure:
-Short PE reads/contigs classification:
+           # raw fastqc
+           "{results}/preprocess/QC/reports_raw/{sample}_R1.html"
+           "{results}/preprocess/QC/reports_raw/{sample}_R1_fastqc.zip"
+           "{results}/preprocess/QC/reports_raw/{sample}_R2.html"
+           "{results}/preprocess/QC/reports_raw/{sample}_R2_fastqc.zip"
+           # raw multiqc
+           "{results}/preprocess/QC/combined_raw/multiqc.html"        
+           # fastp
+           "{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz"
+           "{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz"
+           "{results}/preprocess/trimmed/{sample}_trim_S.fastq.gz"
+           "{results}/preprocess/trimmed/tmp/{sample}_trim_S1.fastq.gz"
+           "{results}/preprocess/trimmed/tmp/{sample}_trim_S2.fastq.gz"
+           "{results}/preprocess/trimmed/reports/{sample}.html"
+           "{results}/preprocess/trimmed/reports/{sample}.json"
+           # trim fastqc
+           "{results}/preprocess/QC/reports_trim/{sample}_R1.html"
+           "{results}/preprocess/QC/reports_trim/{sample}_R1_fastqc.zip"
+           "{results}/preprocess/QC/reports_trim/{sample}_R2.html"
+           "{results}/preprocess/QC/reports_trim/{sample}_R2_fastqc.zip"
+           "{results}/preprocess/QC/reports_trim/{sample}_S.html"
+           "{results}/preprocess/QC/reports_trim/{sample}_S_fastqc.zip"
+           # trim multiqc
+           "{results}/preprocess/QC/combined_trim/multiqc.html"
+           # bowtie2
+           "{results}/preprocess/host_depl/{sample}_clean_R1.fastq.gz"
+           "{results}/preprocess/host_depl/{sample}_clean_R2.fastq.gz"
+           "{results}/preprocess/host_depl/{sample}_clean_S.fastq.gz"
+           "{results}/preprocess/host_depl/{sample}.bam"
+           "{results}/preprocess/host_depl/tmp/{sample}_clean_R%.fastq.gz"
+           # bbmap
+           "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+           # clean fastqc
+           "{results}/preprocess/QC/reports_clean/{sample}_R1.html"
+           "{results}/preprocess/QC/reports_clean/{sample}_R1_fastqc.zip"
+           "{results}/preprocess/QC/reports_clean/{sample}_R2.html"
+           "{results}/preprocess/QC/reports_clean/{sample}_R2_fastqc.zip"
+           "{results}/preprocess/QC/reports_clean/{sample}_S.html"
+           "{results}/preprocess/QC/reports_clean/{sample}_S_fastqc.zip"
+           # clean multiqc
+           "{results}/preprocess/QC/combined_clean/multiqc.html"
+           # krakenuniq
+           "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+           "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report"
+           "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report"
+           # bracken
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_family_abundance.bracken"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_bracken_family_abundance.report"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_genus_abundance.bracken"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_bracken_genus_abundance.report"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_species_abundance.bracken"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_bracken_species_abundance.report"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_family.txt"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_genus.txt"
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_species.txt"
+           # centrifuge
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv"
+           "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv"
+           # metaphlan
+           "{results}/read_classification_results/metaphlan_results/pavian_reports/{sample}_metaphlan_profile.txt"
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_family/{sample}_metaphlan_profile_family.txt"
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_genus/{sample}_metaphlan_profile_genus.txt"
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_species/{sample}_metaphlan_profile_species.txt"
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_sgb/{sample}_metaphlan_profile_sgb.txt"
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie.bt2"
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_family.bt2"
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_genus.bt2"
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_species.bt2"
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_sgb.bt2"
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_gtdb/{sample}_metaphlan_profile_gtdb.txt"
+           # kaiju
+           "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+           # krona reads
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html"
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html"
+           "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_metaphlan.krona"
+           "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_krona_reads_metaphlan.html"   
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html"
+           # recentrifuge
+           "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html"
+           "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html"
+           # krakentools
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq"
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq"
+           # spades
+           "{results}/contig_classification_results/assembly/spades/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_scaffolds.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_scaffolds.fasta"       
+           # metaspades
+           "{results}/contig_classification_results/assembly/metaspades/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_scaffolds.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_scaffolds.fasta"
+           # metaviralspades
+           "{results}/contig_classification_results/assembly/metaviralspades/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_scaffolds.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_scaffolds.fasta"
+           # megahit
+           "{results}/contig_classification_results/assembly/megahit/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs.fasta"
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs_edit.fasta"
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_megahit_contigs.fasta"
+           # cat assembly
+           "{results}/contig_classification_results/assembly/tmp/combined_assembly/{sample}.fasta"
+           # seqtk
+           "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta"
+           "{results}/contig_classification_results/assembly/long_filtered_assembly_threshold_{threshold2}/{sample}_threshold_{threshold2}.fasta"
+           # viralverify
+           "{results}/contig_classification_results/viralverify_classification_7_methods_threshold_{threshold1}/{sample}"
+           # genomad
+           "{results}/contig_classification_results/genomad_classification_7_methods_threshold_{threshold1}/{sample}"
+           # diamond blastx
+           "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
+           "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
+           # daa-meganizer
+           "{results}/contig_classification_results/tmp/short_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold1}.log"
+           "{results}/contig_classification_results/tmp/long_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold2}.log"
+           # diamond view
+           "{results}/contig_classification_results/short_contigs_diamond_view_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.tab"
+           "{results}/contig_classification_results/long_contigs_diamond_view_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.tab"
+           # krona contigs
+           "{results}/contig_classification_results/short_contigs_krona_visualization_7_methods_threshold_{threshold1}/{sample}_krona_contigs_7_methods_threshold_{threshold1}.html"
+           "{results}/contig_classification_results/long_contigs_krona_visualization_7_methods_threshold_{threshold2}/{sample}_krona_contigs_7_methods_threshold_{threshold2}.html"
 
 Long reads workflow output structure:
-Long reads/contigs classification:
-
+           # cat raw fastq 
+           "{results}/preprocess/catfastq/{sample}.fastq.gz"
+           # nanoplot raw
+           "{results}/preprocess/QC/reports_raw/{sample}"
+           # nanocomp raw
+           "{results}/preprocess/QC/combined_raw"
+           # porechop + fastp
+           "{results}/preprocess/trimmed/tmp/{sample}.fastq.gz"
+           "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+           # nanoplot trim
+           "{results}/preprocess/QC/reports_trim/{sample}"
+           # nanocomp trim
+           "{results}/preprocess/QC/combined_trim"
+           # minimap2 + samtools
+           "{results}/preprocess/host_depl/bam_files/{sample}_unal_sort.bam"
+           "{results}/preprocess/host_depl/{sample}_clean.fastq.gz"
+           # nanoplot clean
+           "{results}/preprocess/QC/reports_clean/{sample}"
+           # nanocamp clean
+           "{results}/preprocess/QC/combined_clean"
+           # krakenuniq
+           "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+           "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report"
+           "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report"
+           # centrifuge
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv"
+           "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv"
+           # kaiju
+           "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+           # krona reads
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html"
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html"
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html"
+           # recentrifuge
+           "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html"
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html"
+           "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html"
+           # krakentools
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean.fastq"
+           # metaflye
+           "{results}/contig_classification_results/assembly/tmp/denovo_assembly/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/draft_assembly/{sample}.fasta"
+           # medaka 
+           "{results}/contig_classification_results/assembly/tmp/polishing/{sample}"
+           "{results}/contig_classification_results/assembly/tmp/polished_assembly/{sample}.fasta"
+           "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta"
+           # viralverify
+           "{results}/contig_classification_results/viralverify_classification/{sample}"
+           # genomad
+           "{results}/contig_classification_results/genomad_classification/{sample}"
+           # diamond blastx
+           "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
+           # daa-meganizer
+           "{results}/contig_classification_results/meganizer_logs/{sample}.log"
+           # diamond view
+           "{results}/contig_classification_results/diamond_view/{sample}_diamond_blast_contigs.tab"
+           # krona contigs
+           "{results}/contig_classification_results/krona_visualization/{sample}_krona_contigs.html"
 ```
 ## List of tools used
 [FastQC](https://github.com/s-andrews/FastQC)
