@@ -1,0 +1,1054 @@
+# This script performs quality check, trimming, host removal, assembly, read/contig classification and visualization preparation.
+# Before run, set the parameters in config.yml file and run_workflow.sh script.
+
+# Authors: Martin Bosilj, Alen Suljič
+
+import glob
+import os
+
+configfile: 
+         "config.yml"
+
+output=config["output_dir"]
+read_minlen=config["read_minlen"]              
+q_trim=config["quality_trim"]
+unqual_limit=config["unqualified_percent_limit"]
+window_size=config["cut_window_size"]
+q_mean=config["cut_mean_quality"]
+diff_limit=config["overlap_diff_limit"]
+ref=config["reference_genome"]
+min_con1=config["minimum_contig_length_threshold_1"]
+min_con2=config["minimum_contig_length_threshold_2"]
+krakenuniq_path_microbial=config["krakenuniq_db_microbial_path"]
+krakenuniq_path_nt=config["krakenuniq_db_nt_path"]
+hll=config["hll-precision"]
+num_assignments=config["num_assignments_per_read"]
+read_length=config["classification_read_length"]
+reads_threshold=config["min_reads_threshold"]
+centrifuge_path_nt=config["centrifuge_db_nt_path"]
+tax_db=config["rcf_tax_db"]
+taxid_host=config["exclude_host_taxid"]
+taxid_synthetic=config["exclude_synthetic_taxid"]
+score=config["min_score"]
+mismathc=config["mismatch_number"]
+match_length=config["min_match_length"]
+match_score=config["min_match_score"]
+evalue=config["min_evalue"]
+metaphlan_db=config["metaphlan_db_path"]
+metaphlan_db_prefix=config["metaphlan_db_prefix_name"]
+metaphlan_db_pkl=config["metaphlan_db_pkl_path"]
+kaiju_db=config["kaiju_db_path"]
+hmm_db=config["hmm_db_path"]
+genomad_db=config["genomad_db_path"]
+diamond_db=config["diamond_db_path"]
+taxonmap_db=config["taxonmap_db_path"]
+taxonnodes_db=config["taxonnodes_db_path"]
+taxonnames_db=config["taxonnames_db_path"]
+megan_db=config["megan_db_path"]
+memory_gb=config["memory_limit_gb"]
+memory_b=config["memory_limit_b"]
+
+fastqDir = config["input_fastq"] + '/'
+samples = glob.glob(fastqDir + '*_R1.fastq.gz')
+samples = [os.path.basename(x) for x in samples]
+samples = [x.replace('_R1.fastq.gz','') for x in samples]
+
+#########################
+######## RULES ##########
+#########################
+
+def get_r1(wildcards):
+    return glob.glob(fastqDir + wildcards.sample + '_R1.fastq.gz')
+
+def get_r2(wildcards):
+    return glob.glob(fastqDir + wildcards.sample + '_R2.fastq.gz')
+
+rule all:
+    input:
+        expand([
+           # raw fastqc
+           "{results}/preprocess/QC/reports_raw/{sample}_R1.html",
+           "{results}/preprocess/QC/reports_raw/{sample}_R1_fastqc.zip",
+           "{results}/preprocess/QC/reports_raw/{sample}_R2.html",
+           "{results}/preprocess/QC/reports_raw/{sample}_R2_fastqc.zip",
+           # raw multiqc
+           "{results}/preprocess/QC/combined_raw/multiqc.html",        
+           # fastp
+           "{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+           "{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+           "{results}/preprocess/trimmed/{sample}_trim_S.fastq.gz",
+           "{results}/preprocess/trimmed/tmp/{sample}_trim_S1.fastq.gz",
+           "{results}/preprocess/trimmed/tmp/{sample}_trim_S2.fastq.gz",
+           "{results}/preprocess/trimmed/reports/{sample}.html",
+           "{results}/preprocess/trimmed/reports/{sample}.json",
+           # trim fastqc
+           "{results}/preprocess/QC/reports_trim/{sample}_R1.html",
+           "{results}/preprocess/QC/reports_trim/{sample}_R1_fastqc.zip",
+           "{results}/preprocess/QC/reports_trim/{sample}_R2.html",
+           "{results}/preprocess/QC/reports_trim/{sample}_R2_fastqc.zip",
+           "{results}/preprocess/QC/reports_trim/{sample}_S.html",
+           "{results}/preprocess/QC/reports_trim/{sample}_S_fastqc.zip",
+           # trim multiqc
+           "{results}/preprocess/QC/combined_trim/multiqc.html",
+           # bowtie2
+           "{results}/preprocess/host_depl/{sample}_clean_R1.fastq.gz",
+           "{results}/preprocess/host_depl/{sample}_clean_R2.fastq.gz",
+           "{results}/preprocess/host_depl/{sample}_clean_S.fastq.gz",
+           "{results}/preprocess/host_depl/{sample}.bam",
+           "{results}/preprocess/host_depl/tmp/{sample}_clean_R%.fastq.gz",
+           # bbmap
+           "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz",
+           # clean fastqc
+           "{results}/preprocess/QC/reports_clean/{sample}_R1.html",
+           "{results}/preprocess/QC/reports_clean/{sample}_R1_fastqc.zip",
+           "{results}/preprocess/QC/reports_clean/{sample}_R2.html",
+           "{results}/preprocess/QC/reports_clean/{sample}_R2_fastqc.zip",
+           "{results}/preprocess/QC/reports_clean/{sample}_S.html",
+           "{results}/preprocess/QC/reports_clean/{sample}_S_fastqc.zip",
+           # clean multiqc
+           "{results}/preprocess/QC/combined_clean/multiqc.html",
+           # krakenuniq
+           "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+           "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+           "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report",
+           # bracken
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_family_abundance.bracken",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_bracken_family_abundance.report",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_genus_abundance.bracken",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_bracken_genus_abundance.report",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_species_abundance.bracken",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_bracken_species_abundance.report",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_family.txt",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_genus.txt",
+           "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_species.txt",
+           # centrifuge
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv",
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv",
+           "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv",
+           # metaphlan
+           "{results}/read_classification_results/metaphlan_results/pavian_reports/{sample}_metaphlan_profile.txt",
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_family/{sample}_metaphlan_profile_family.txt",
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_genus/{sample}_metaphlan_profile_genus.txt",
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_species/{sample}_metaphlan_profile_species.txt",
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_sgb/{sample}_metaphlan_profile_sgb.txt",
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie.bt2",
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_family.bt2",
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_genus.bt2",
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_species.bt2",
+           "{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_sgb.bt2",
+           "{results}/read_classification_results/metaphlan_results/taxonomic_level_gtdb/{sample}_metaphlan_profile_gtdb.txt",
+           # kaiju
+           "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv",
+           # krona reads
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona",
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona",
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html",
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html",
+           "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_metaphlan.krona",
+           "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_krona_reads_metaphlan.html",   
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona",
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html",
+           # recentrifuge
+           "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html",
+           "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html",
+           # krakentools
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+           # spades
+           "{results}/contig_classification_results/assembly/spades/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_scaffolds.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_scaffolds.fasta",       
+           # metaspades
+           "{results}/contig_classification_results/assembly/metaspades/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_scaffolds.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_scaffolds.fasta",
+           # metaviralspades
+           "{results}/contig_classification_results/assembly/metaviralspades/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_scaffolds.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_scaffolds.fasta",
+           # megahit
+           "{results}/contig_classification_results/assembly/megahit/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs.fasta",
+           "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs_edit.fasta",
+           "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_megahit_contigs.fasta",
+           # cat assembly
+           "{results}/contig_classification_results/assembly/tmp/combined_assembly/{sample}.fasta",
+           # seqtk
+           "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta",
+           "{results}/contig_classification_results/assembly/long_filtered_assembly_threshold_{threshold2}/{sample}_threshold_{threshold2}.fasta",
+           # viralverify
+           "{results}/contig_classification_results/viralverify_classification_7_methods_threshold_{threshold1}/{sample}",
+           # genomad
+           "{results}/contig_classification_results/genomad_classification_7_methods_threshold_{threshold1}/{sample}",
+           # diamond blastx
+           "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa",
+           "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa",
+           # daa-meganizer
+           "{results}/contig_classification_results/tmp/short_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold1}.log",
+           "{results}/contig_classification_results/tmp/long_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold2}.log",
+           # diamond view
+           "{results}/contig_classification_results/short_contigs_diamond_view_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.tab",
+           "{results}/contig_classification_results/long_contigs_diamond_view_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.tab",
+           # krona contigs
+           "{results}/contig_classification_results/short_contigs_krona_visualization_7_methods_threshold_{threshold1}/{sample}_krona_contigs_7_methods_threshold_{threshold1}.html",
+           "{results}/contig_classification_results/long_contigs_krona_visualization_7_methods_threshold_{threshold2}/{sample}_krona_contigs_7_methods_threshold_{threshold2}.html",
+        ], results=output, sample=samples, threshold1=min_con1, threshold2=min_con2)
+
+rule fastqc_raw_R1:
+    input:
+        get_r1
+    output:
+        html="{results}/preprocess/QC/reports_raw/{sample}_R1.html",
+        zip="{results}/preprocess/QC/reports_raw/{sample}_R1_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule fastqc_raw_R2:
+    input:
+        get_r2
+    output:
+        html="{results}/preprocess/QC/reports_raw/{sample}_R2.html",
+        zip="{results}/preprocess/QC/reports_raw/{sample}_R2_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000" #possible range (100-10000)
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule multiqc_raw:
+    input:
+        expand("{results}/preprocess/QC/reports_raw/{sample}_R{number}.html", results=output, sample=samples, number=["1", "2"])
+    output:
+        "{results}/preprocess/QC/combined_raw/multiqc.html"
+    log:
+        "{results}/preprocess/QC/combined_raw/multiqc.log"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/multiqc"
+
+rule fastp:
+    input:
+        R1=get_r1,
+        R2=get_r2
+    output:
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+        S1="{results}/preprocess/trimmed/tmp/{sample}_trim_S1.fastq.gz",
+        S2="{results}/preprocess/trimmed/tmp/{sample}_trim_S2.fastq.gz",
+        html="{results}/preprocess/trimmed/reports/{sample}.html",
+        json="{results}/preprocess/trimmed/reports/{sample}.json"
+    threads: 16           
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && fastp --correction --in1 {input.R1} --in2 {input.R2} --out1 {output.R1} --out2 {output.R2} --detect_adapter_for_pe --cut_front --cut_tail --qualified_quality_phred {q_trim} --unqualified_percent_limit {unqual_limit} --length_required {read_minlen} --trim_poly_x --trim_poly_g --cut_window_size {window_size} --cut_mean_quality {q_mean} --overlap_diff_limit {diff_limit} --thread {threads} --html {output.html} --json {output.json} --unpaired1 {output.S1} --unpaired2 {output.S2} && date"
+
+rule cat_singles:
+    input:
+        S1="{results}/preprocess/trimmed/tmp/{sample}_trim_S1.fastq.gz",
+        S2="{results}/preprocess/trimmed/tmp/{sample}_trim_S2.fastq.gz"
+    output:
+        "{results}/preprocess/trimmed/{sample}_trim_S.fastq.gz",
+    shell:
+        "date && cat {input.S1} {input.S2} > {output} && date"
+
+rule fastqc_trim_R1:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_trim/{sample}_R1.html",
+        zip="{results}/preprocess/QC/reports_trim/{sample}_R1_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule fastqc_trim_R2:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_trim/{sample}_R2.html",
+        zip="{results}/preprocess/QC/reports_trim/{sample}_R2_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule fastqc_trim_S:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim_S.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_trim/{sample}_S.html",
+        zip="{results}/preprocess/QC/reports_trim/{sample}_S_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule multiqc_trim:
+    input:
+        expand("{results}/preprocess/QC/reports_trim/{sample}_{number}.html", results=output, sample=samples, number=["R1", "R2", "S"])
+    output:
+        "{results}/preprocess/QC/combined_trim/multiqc.html"
+    log:
+        "{results}/preprocess/QC/combined_trim/multiqc.log"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/multiqc"
+
+rule bowtie2:
+    input:
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+        S="{results}/preprocess/trimmed/{sample}_trim_S.fastq.gz",
+    output:
+        PE=touch("{results}/preprocess/host_depl/tmp/{sample}_clean_R%.fastq.gz"),
+        S="{results}/preprocess/host_depl/{sample}_clean_S.fastq.gz",
+        BAM="{results}/preprocess/host_depl/{sample}.bam",
+        PE1="{results}/preprocess/host_depl/{sample}_clean_R1.fastq.gz",
+        PE2="{results}/preprocess/host_depl/{sample}_clean_R2.fastq.gz"
+    threads: 128       
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && bowtie2 -p {threads} -x {ref} -1 {input.R1} -2 {input.R2} -U {input.S} --un-gz {output.S} --un-conc-gz {output.PE} | samtools view -uhS -f 4 -@ {threads} | samtools sort -o {output.BAM} -@ {threads} && mv {wildcards.results}/preprocess/host_depl/tmp/{wildcards.sample}_clean_R1.fastq.gz {output.PE1} && mv {wildcards.results}/preprocess/host_depl/tmp/{wildcards.sample}_clean_R2.fastq.gz {output.PE2} && date"
+
+rule bbmap_interleaved_fastq:
+    input:
+        R1="{results}/preprocess/host_depl/{sample}_clean_R1.fastq.gz",
+        R2="{results}/preprocess/host_depl/{sample}_clean_R2.fastq.gz",
+    output:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && reformat.sh -Xmx{memory_gb}g in1={input.R1} in2={input.R2} out={output} && date"
+
+rule fastqc_clean_R1:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_R1.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_clean/{sample}_R1.html",
+        zip="{results}/preprocess/QC/reports_clean/{sample}_R1_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule fastqc_clean_R2:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_R2.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_clean/{sample}_R2.html",
+        zip="{results}/preprocess/QC/reports_clean/{sample}_R2_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule fastqc_clean_S:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_S.fastq.gz",
+    output:
+        html="{results}/preprocess/QC/reports_clean/{sample}_S.html",
+        zip="{results}/preprocess/QC/reports_clean/{sample}_S_fastqc.zip" 
+    params: 
+        extra = "--quiet --memory 10000"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/fastqc"
+
+rule multiqc_clean:
+    input:
+        expand("{results}/preprocess/QC/reports_clean/{sample}_{number}.html", results=output, sample=samples, number=["R1", "R2", "S"])
+    output:
+        "{results}/preprocess/QC/combined_clean/multiqc.html"
+    log:
+        "{results}/preprocess/QC/combined_clean/multiqc.log"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    wrapper:
+        "v2.10.0/bio/multiqc"
+
+rule krakenuniq:
+    input:
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+    output:
+        krakenuniq_class = "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+        unclassified = "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz"
+    threads: 128
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && krakenuniq --db {krakenuniq_path_microbial} --preload-size {memory_gb}G --hll-precision {hll} --report {output.report} --paired --check-names --threads {threads} {input.R1} {input.R2} --unclassified-out {output.unclassified} > {output.krakenuniq_class} && date"
+
+rule bracken_family:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report"
+    output:
+        bracken="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_family_abundance.bracken",
+        report="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_bracken_family_abundance.report"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && bracken -d {krakenuniq_path_microbial} -i {input} -l F -r {read_length} -t {reads_threshold} -o {output.bracken} -w {output.report} && date"
+
+rule bracken_genus:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report"
+    output:
+        bracken="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_genus_abundance.bracken",
+        report="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_bracken_genus_abundance.report"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && bracken -d {krakenuniq_path_microbial} -i {input} -l G -r {read_length} -t {reads_threshold} -o {output.bracken} -w {output.report} && date"
+
+rule bracken_species:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report"
+    output:
+        bracken="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_species_abundance.bracken",
+        report="{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_bracken_species_abundance.report"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && bracken -d {krakenuniq_path_microbial} -i {input} -l S -r {read_length} -t {reads_threshold} -o {output.bracken} -w {output.report} && date"
+
+rule kreport2mpa_family:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_family/{sample}_bracken_family_abundance.report"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/family/{sample}_bracken_mpa_family.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && kreport2mpa.py -r {input} --read_count --no-intermediate-ranks --display-header -o {output} && date"
+
+rule kreport2mpa_genus:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_genus/{sample}_bracken_genus_abundance.report"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/genus/{sample}_bracken_mpa_genus.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && kreport2mpa.py -r {input} --read_count --no-intermediate-ranks --display-header -o {output} && date"
+
+rule kreport2mpa_species:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/taxonomic_level_species/{sample}_bracken_species_abundance.report"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/species/{sample}_bracken_mpa_species.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && kreport2mpa.py -r {input} --read_count --no-intermediate-ranks --display-header -o {output} && date"
+
+rule merge_kreport2mpa_family:
+    input:
+        expand("{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/family/{sample}_bracken_mpa_family.txt", results=output, sample=samples)
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_family.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && combine_mpa.py -i {input} -o {output} && date"
+
+rule merge_kreport2mpa_genus:
+    input:
+        expand("{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/genus/{sample}_bracken_mpa_genus.txt", results=output, sample=samples)
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_genus.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && combine_mpa.py -i {input} -o {output} && date"
+
+rule merge_kreport2mpa_species:
+    input:
+        expand("{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/species/{sample}_bracken_mpa_species.txt", results=output, sample=samples)
+    output:
+        "{results}/read_classification_results/krakenuniq_results/bracken_estimate_abundance/bracken_metaphlan_profile/merged_samples/merged_abundance_table_species.txt"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && combine_mpa.py -i {input} -o {output} && date"
+
+rule edit_krona_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+    shell:
+        "date && cat {input} | cut -f 2,3 > {output} && date"
+       
+rule krona_reads_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -k {input} -o {output} -s KRAKEN -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule krakenuniq_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz"
+    output:
+        krakenuniq_class = "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report",
+    threads: 128
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && krakenuniq --db {krakenuniq_path_nt} --preload-size {memory_gb}G --hll-precision {hll} --report {output.report} --threads {threads} {input} > {output.krakenuniq_class} && date"
+          
+rule edit_krona_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+    shell:
+        "date && cat {input} | cut -f 2,3 > {output} && date"
+       
+rule krona_reads_krakenuniq_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_unclassified_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -k {input} -o {output} -s KRAKEN -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule centrifuge:
+    input:
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+    output:
+        centrifuge_class = "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv",
+        report = "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv",
+    threads:128
+    resources: mem_mb=1000000
+    singularity: config['singularity_image_path']+"/centrifuge.sif"
+    shell:
+        "date && centrifuge -q --phred33 -t -k {num_assignments} -p {threads} -x {centrifuge_path_nt} -1 {input.R1} -2 {input.R2} --report-file {output.report} -S {output.centrifuge_class} && date"
+
+rule centrifuge_kreport:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv"
+    singularity: config['singularity_image_path']+"/centrifuge.sif"
+    shell:
+        "date && centrifuge-kreport -x {centrifuge_path_nt} {input} > {output} && date"
+
+rule edit_krona_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+    shell:
+        "date && cat {input} | cut -f 1,3 > {output} && date"
+       
+rule krona_reads_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+    output:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -f {input} -o {output} -s SHEL -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule extract_microbial:
+    input:
+        krakenuniq= "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+    output:
+        R1="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+        R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && extract_kraken_reads.py -k {input.krakenuniq} -s {input.R1} -s2 {input.R2} -o {output.R1} -o2 {output.R2} -r {input.report} -t {taxid_host} {taxid_synthetic} {taxid_eukaryota} --exclude --append --fastq-output && date"
+
+rule metaphlan:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    output:
+        metaphlan="{results}/read_classification_results/metaphlan_results/pavian_reports/{sample}_metaphlan_profile.txt",
+        bt2="{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie.bt2",
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan {input} --bowtie2out {output.bt2} --nproc {threads} --bowtie2db {metaphlan_db} -x {metaphlan_db_prefix} --input_type fastq -t rel_ab --unclassified_estimation --read_min_len {read_minlen} > {output.metaphlan} && date"
+
+rule metaphlan_family:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    output:
+        metaphlan="{results}/read_classification_results/metaphlan_results/taxonomic_level_family/{sample}_metaphlan_profile_family.txt",
+        bt2="{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_family.bt2",
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan {input} --bowtie2out {output.bt2} --nproc {threads} --bowtie2db {metaphlan_db} -x {metaphlan_db_prefix} --input_type fastq -t rel_ab --unclassified_estimation --read_min_len {read_minlen} --tax_lev f > {output.metaphlan} && date"
+
+rule metaphlan_genus:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    output:
+        metaphlan="{results}/read_classification_results/metaphlan_results/taxonomic_level_genus/{sample}_metaphlan_profile_genus.txt",
+        bt2="{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_genus.bt2",
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan {input} --bowtie2out {output.bt2} --nproc {threads} --bowtie2db {metaphlan_db} -x {metaphlan_db_prefix} --input_type fastq -t rel_ab --unclassified_estimation --read_min_len {read_minlen} --tax_lev g > {output.metaphlan} && date"
+
+rule metaphlan_species:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    output:
+        metaphlan="{results}/read_classification_results/metaphlan_results/taxonomic_level_species/{sample}_metaphlan_profile_species.txt",
+        bt2="{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_species.bt2",
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan {input} --bowtie2out {output.bt2} --nproc {threads} --bowtie2db {metaphlan_db} -x {metaphlan_db_prefix} --input_type fastq -t rel_ab --unclassified_estimation --read_min_len {read_minlen} --tax_lev s > {output.metaphlan} && date"
+
+rule metaphlan_sgb:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean_interleaved.fastq.gz"
+    output:
+        metaphlan="{results}/read_classification_results/metaphlan_results/taxonomic_level_sgb/{sample}_metaphlan_profile_sgb.txt",
+        bt2="{results}/read_classification_results/metaphlan_results/metaphlan_taxonomic/{sample}_bowtie_sgb.bt2",
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan {input} --bowtie2out {output.bt2} --nproc {threads} --bowtie2db {metaphlan_db} -x {metaphlan_db_prefix} --input_type fastq -t rel_ab --unclassified_estimation --read_min_len {read_minlen} --tax_lev t > {output.metaphlan} && date"
+
+rule sgb2gtdb:
+    input:
+        "{results}/read_classification_results/metaphlan_results/taxonomic_level_sgb/{sample}_metaphlan_profile_sgb.txt"
+    output:
+        "{results}/read_classification_results/metaphlan_results/taxonomic_level_gtdb/{sample}_metaphlan_profile_gtdb.txt"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && sgb_to_gtdb_profile.py -d {metaphlan_db_pkl} -i {input} -o {output} && date"
+
+rule metaphlan2krona:
+    input:
+        "{results}/read_classification_results/metaphlan_results/pavian_reports/{sample}_metaphlan_profile.txt"
+    output:
+        "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_metaphlan.krona"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && metaphlan2krona.py -p {input} -k {output} && date"
+
+rule krona_reads_metaphlan:
+    input:
+        "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_metaphlan.krona"
+    output:
+        "{results}/read_classification_results/metaphlan_results/krona_visualization/{sample}_krona_reads_metaphlan.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportText {input} -o {output} && date"
+
+rule kaiju:
+    input:
+        R1="{results}/preprocess/trimmed/{sample}_trim_R1.fastq.gz",
+        R2="{results}/preprocess/trimmed/{sample}_trim_R2.fastq.gz",
+    output:
+        "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && kaiju -t {taxonnodes_db} -f {kaiju_db} -i {input.R1} -j {input.R2} -z {threads} -a greedy -e {mismathc} -m {match_length} -s {match_score} -E {evalue} -x -o {output} && date"
+
+rule kaiju2krona:
+    input:
+        "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+    output:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && kaiju2krona -t {taxonnodes_db} -n {taxonnames_db} -i {input} -o {output} && date"
+
+rule krona_reads_kaiju:
+    input:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+    output:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportText {input} -o {output} && date"
+
+rule spades:
+    input:
+        R1="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+        R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+    output:
+        directory("{results}/contig_classification_results/assembly/spades/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && spades.py --pe-1 1 {input.R1} --pe-2 1 {input.R2} -t {threads} -m {memory_gb} -k 21,33,55,77,99,127 --careful -o {output} && date"
+
+rule copy_spades_contigs:
+    input:
+        directory="{results}/contig_classification_results/assembly/spades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_contigs.fasta"
+    run:    
+        contigs_path = os.path.join(input.directory, "contigs.fasta")
+        if os.path.exists(contigs_path):
+            shell("cp {contigs_path} {output}")
+        else:
+            shell("echo '{contigs_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_spades_contigs:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_contigs.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_contigs.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_spades_contigs addprefix=t -Xmx{memory_gb}g"
+
+rule copy_spades_scaffolds:
+    input:
+        directory="{results}/contig_classification_results/assembly/spades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_scaffolds.fasta"
+    run:    
+        scaffolds_path = os.path.join(input.directory, "scaffolds.fasta")
+        if os.path.exists(scaffolds_path):
+            shell("cp {scaffolds_path} {output}")
+        else:
+            shell("echo '{scaffolds_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_spades_scaffolds:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_spades_scaffolds.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_spades_scaffolds.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_spades_scaffolds addprefix=t -Xmx{memory_gb}g"
+
+rule metaspades:
+    input:
+        R1="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+        R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+    output:
+        directory("{results}/contig_classification_results/assembly/metaspades/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && metaspades.py --pe-1 1 {input.R1} --pe-2 1 {input.R2} -t {threads} -m {memory_gb} -k 21,33,55,77,99,127 -o {output} && date"
+
+rule copy_metaspades_contigs:
+    input:
+        directory="{results}/contig_classification_results/assembly/metaspades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_contigs.fasta"
+    run:    
+        contigs_path = os.path.join(input.directory, "contigs.fasta")
+        if os.path.exists(contigs_path):
+            shell("cp {contigs_path} {output}")
+        else:
+            shell("echo '{contigs_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_metaspades_contigs:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_contigs.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_contigs.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_metaspades_contigs addprefix=t -Xmx{memory_gb}g"
+
+rule copy_metaspades_scaffolds:
+    input:
+        directory="{results}/contig_classification_results/assembly/metaspades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_scaffolds.fasta"
+    run:    
+        scaffolds_path = os.path.join(input.directory, "scaffolds.fasta")
+        if os.path.exists(scaffolds_path):
+            shell("cp {scaffolds_path} {output}")
+        else:
+            shell("echo '{scaffolds_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_metaspades_scaffolds:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaspades_scaffolds.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaspades_scaffolds.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_metaspades_scaffolds addprefix=t -Xmx{memory_gb}g"
+
+rule metaviralspades:
+    input:
+        R1="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+        R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+    output:
+        directory("{results}/contig_classification_results/assembly/metaviralspades/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && metaviralspades.py --pe-1 1 {input.R1} --pe-2 1 {input.R2} -t {threads} -m {memory_gb} -k 21,33,55,77,99,127 -o {output} && date"
+
+rule copy_metaviralspades_contigs:
+    input:
+        directory="{results}/contig_classification_results/assembly/metaviralspades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_contigs.fasta"
+    run:    
+        contigs_path = os.path.join(input.directory, "contigs.fasta")
+        if os.path.exists(contigs_path):
+            shell("cp {contigs_path} {output}")
+        else:
+            shell("echo '{contigs_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_metaviralspades_contigs:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_contigs.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_contigs.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_metaviralspades_contigs addprefix=t -Xmx{memory_gb}g"
+
+rule copy_metaviralspades_scaffolds:
+    input:
+        directory="{results}/contig_classification_results/assembly/metaviralspades/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_scaffolds.fasta"
+    run:    
+        scaffolds_path = os.path.join(input.directory, "scaffolds.fasta")
+        if os.path.exists(scaffolds_path):
+            shell("cp {scaffolds_path} {output}")
+        else:
+            shell("echo '{scaffolds_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_metaviralspades_scaffolds:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_metaviralspades_scaffolds.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_metaviralspades_scaffolds.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_metaviralspades_scaffolds addprefix=t -Xmx{memory_gb}g"
+
+rule megahit:
+    input:
+        R1="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R1.fastq",
+        R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
+    output:
+        directory("{results}/contig_classification_results/assembly/megahit/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && megahit -1 {input.R1} -2 {input.R2} -t {threads} -m {memory_b} --presets meta-sensitive -o {output} && date"
+
+rule copy_megahit_contigs:
+    input:
+        directory="{results}/contig_classification_results/assembly/megahit/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs.fasta"
+    run:    
+        contigs_path = os.path.join(input.directory, "final.contigs.fa")
+        if os.path.exists(contigs_path):
+            shell("cp {contigs_path} {output}")
+        else:
+            shell("echo '{contigs_path} DOES NOT EXIST!' && touch {output}")
+
+rule edit_megahit_contigs:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs_edit.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "bbrename.sh in={input} out={output} prefix={wildcards.sample}_megahit_contigs addprefix=t -Xmx{memory_gb}g"
+
+rule edit_megahit_contigs2:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/draft/{sample}/{sample}_megahit_contigs_edit.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/{sample}/{sample}_megahit_contigs.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "sed -E '/^>/ s/ /_/g' {input} > {output}"
+
+rule catfasta:
+    input:
+        spades1=rules.edit_spades_contigs.output,
+        spades2=rules.edit_spades_scaffolds.output,
+        metaspades1=rules.edit_metaspades_contigs.output,
+        metaspades2=rules.edit_metaspades_scaffolds.output,
+        metaviralspades1=rules.edit_metaviralspades_contigs.output,
+        metaviralspades2=rules.edit_metaviralspades_scaffolds.output,
+        megahit=rules.edit_megahit_contigs2.output
+    output:
+        "{results}/contig_classification_results/assembly/tmp/combined_assembly/{sample}.fasta"
+    shell:
+        "date && cat {input.spades1} {input.spades2} {input.metaspades1} {input.metaspades2} {input.metaviralspades1} {input.metaviralspades2} {input.megahit} > {output} && date"
+
+rule seqtk_1:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/combined_assembly/{sample}.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && seqtk seq -L {min_con1} {input} > {output} && date"
+
+rule seqtk_2:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/combined_assembly/{sample}.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/long_filtered_assembly_threshold_{threshold2}/{sample}_threshold_{threshold2}.fasta"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && seqtk seq -L {min_con2} {input} > {output} && date"
+
+rule viralverify:
+    input:
+        "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta"
+    output:
+        directory("{results}/contig_classification_results/viralverify_classification_7_methods_threshold_{threshold1}/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && viralverify -t {threads} -p -f {input} -o {output} --hmm {hmm_db} && date"
+
+rule genomad:
+    input:
+        "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta"
+    output:
+        directory("{results}/contig_classification_results/genomad_classification_7_methods_threshold_{threshold1}/{sample}")
+    threads: 128    
+    singularity: config['singularity_image_path']+"/genomad.sif"
+    shell:
+        "date && genomad end-to-end --cleanup -t {threads} {input} {output} {genomad_db} && date"
+
+rule diamond_blastx_1:
+    input:
+        "{results}/contig_classification_results/assembly/short_filtered_assembly_threshold_{threshold1}/{sample}_threshold_{threshold1}.fasta"
+    output:
+        "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
+
+rule diamond_blastx_2:
+    input:
+        "{results}/contig_classification_results/assembly/long_filtered_assembly_threshold_{threshold2}/{sample}_threshold_{threshold2}.fasta"
+    output:
+        "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
+
+rule daa_meganizer_1:
+    input:
+        "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
+    log:
+        "{results}/contig_classification_results/tmp/short_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold1}.log"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
+
+rule daa_meganizer_2:
+    input:
+        "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
+    log:
+        "{results}/contig_classification_results/tmp/long_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold2}.log"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
+
+rule diamond_view_1:
+    input:
+        "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
+    output:
+        "{results}/contig_classification_results/short_contigs_diamond_view_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.tab"
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond view --daa {input} -o {output} && date"
+
+rule diamond_view_2:
+    input:
+        "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
+    output:
+        "{results}/contig_classification_results/long_contigs_diamond_view_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.tab"
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond view --daa {input} -o {output} && date"
+
+rule krona_contig_1:
+    input:
+        "{results}/contig_classification_results/short_contigs_diamond_view_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.tab"
+    output:
+        "{results}/contig_classification_results/short_contigs_krona_visualization_7_methods_threshold_{threshold1}/{sample}_krona_contigs_7_methods_threshold_{threshold1}.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportBLAST {input} -o {output} && date"
+
+rule krona_contig_2:
+    input:
+        "{results}/contig_classification_results/long_contigs_diamond_view_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.tab"
+    output:
+        "{results}/contig_classification_results/long_contigs_krona_visualization_7_methods_threshold_{threshold2}/{sample}_krona_contigs_7_methods_threshold_{threshold2}.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportBLAST {input} -o {output} && date"

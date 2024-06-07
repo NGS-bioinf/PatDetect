@@ -1,0 +1,83 @@
+# Configuration file, where you define input/output path, analysis parameters and path to databases.
+
+# Author: Martin Bosilj
+
+#Set max memory limit in Gb for bbmap, krakenuniq, spades, metaspades and metaviralspades
+memory_limit_gb: "1000"
+#Set max memory limit in byte for MEGAHIT
+memory_limit_b: "1000000000000"
+
+# Path to short PE reads in fastq.gz format (PE read must end with "_R1.fastq.gz" and "_R2.fastq.gz")
+input_fastq: "/short_PE_reads_analysis/data"
+# Output directory
+output_dir: "/short_PE_reads_analysis"
+# Singularity images path
+singularity_image_path: "/singularity_images"
+
+# Quality check & trimming parameters
+read_minlen: "60"
+quality_trim: "20"
+unqualified_percent_limit: "40"   #how many percents of bases are allowed to be unqualified (0~100). Default 40 means 40%.
+cut_window_size: "4"   #the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000. Default: 4.
+cut_mean_quality: "20"   #the mean quality requirement option shared by cut_front, cut_tail or cut_sliding. Range: 1~36 default: 20 (Q20).
+overlap_diff_limit: "5"   #the maximum number of mismatched bases to detect overlapped region of PE reads. This will affect overlap analysis based PE merge, adapter trimming and correction. Default: 5.
+
+# Host depletion parameters
+# Reference genome (before run build index, using bowtie2-build command)
+reference_genome: "/references/GRCh38_latest_genomic.fna.gz"
+
+# Assembly parameters
+# Set minimum contig length
+minimum_contig_length_threshold_1: "300"
+minimum_contig_length_threshold_2: "1000"
+
+# Classification parameters
+# Krakenuniq - Reads classification
+hll-precision: "18"     #precision for HyperLogLog k-mer cardinality estimation, between 10 and 18 (default: 12)
+num_assignments_per_read: "1"     #report upto <int> distinct, primary assignments for each read or pair (k=1 strongly recommended)
+# Bracken aboundance parameters
+classification_read_length: "100"     # read length to get all classifications for (default: 100)
+min_reads_threshold: "0"     # number of reads required PRIOR to abundance estimation to perform reestimation (default: 0)
+# Recentrifuge - Exclude TAXID (e.g.  excluding the reads assigned to humans (taxid 9606))  
+exclude_host_taxid: "9606"
+exclude_synthetic_taxid: "32630"
+# Recentrifuge - Minimum confidence of the classification of a read to pass the quality filter (default: all reads)
+min_score: "25"
+# Kaiju - Number of mismatches allowed in Greedy mode (default: 3)
+mismatch_number: "3"
+# Kaiju - Minimum match length (default: 11)
+min_match_length: "11"
+# Kaiju - Minimum match score in Greedy mode (default: 65)
+min_match_score: "65"
+# Kaiju - Minimum E-value in Greedy mode (default: 0.01)
+min_evalue: "0.01"
+
+# Databases
+# Krakenuniq standard database path
+krakenuniq_db_microbial_path: "/databases/kuniq_microbialdb_minus_kdb.20230808"
+# Krakenuniq nt database path
+krakenuniq_db_nt_path: "/databases/kuniq_nt_db"
+# Centrifuge nt database path
+centrifuge_db_nt_path: "/databases/centrifuge_nt_db"
+# Recentrifuge nodes/names database path
+rcf_tax_db: "/databases/NCBItaxonomy"
+# Metaphlan database path, prefix and PKL
+metaphlan_db_path: "/databases/metaphlan_db"
+metaphlan_db_prefix_name: "mpa_vJun23_CHOCOPhlAnSGB_202307"
+metaphlan_db_pkl_path: "/databases/metaphlan_db/mpa_vJun23_CHOCOPhlAnSGB_202307.pkl"
+# Kaiju nr_euk database path
+kaiju_db_path: "/databases/kaiju_nr_euk/kaiju_db_nr_euk.fmi"
+# hmm database path
+hmm_db_path: "/databases/HMMdb/nbc_hmms.hmm"
+# genomad database path
+genomad_db_path: "/databases/genomad_db_v1-7"
+# diamond database path
+diamond_db_path: "/databases/DIAMOND-DB/nr.dmnd"
+# taxonmap database path
+taxonmap_db_path: "/databases/NCBItaxonomy/prot.accession2taxid.FULL.gz"
+# taxonnodes database path
+taxonnodes_db_path: "/databases/NCBItaxonomy/nodes.dmp"
+# taxonnames database path
+taxonnames_db_path: "/databases/NCBItaxonomy/names.dmp"
+# megan database path
+megan_db_path: "/databases/MEGAN/megan-map-Feb2022.db"

@@ -1,0 +1,498 @@
+# This script performs quality check, trimmed, host removal, assembly, polishing, read/contig classification and visualization preparation.
+# Before run, set the parameters in config.yml file and run_workflow.sh script.
+
+# Authors: Martin Bosilj, Alen Suljič
+
+import glob
+import os
+
+configfile: 
+         "config.yml"
+
+output=config["output_dir"]
+length=config["min_length"]
+split_length=config["min_split_length"]
+quality=config["quality_score"]
+unqual_limit=config["unqualified_percent_limit"]
+window_size=config["cut_window_size"]
+q_mean=config["cut_mean_quality"]
+ref=config["reference_genome"]
+model=config["medaka_model"]
+min_con=config["minimum_contig_length"]
+krakenuniq_path_microbial=config["krakenuniq_db_microbial_path"]
+krakenuniq_path_nt=config["krakenuniq_db_nt_path"]
+hll=config["hll-precision"]
+num_assignments=config["num_assignments_per_read"]
+read_length=config["classification_read_length"]
+reads_threshold=config["min_reads_threshold"]
+centrifuge_path_nt=config["centrifuge_db_nt_path"]
+tax_db=config["rcf_tax_db"]
+taxid_host=config["exclude_host_taxid"]
+taxid_synthetic=config["exclude_synthetic_taxid"]
+score=config["min_score"]
+mismathc=config["mismatch_number"]
+match_length=config["min_match_length"]
+match_score=config["min_match_score"]
+evalue=config["min_evalue"]
+kaiju_db=config["kaiju_db_path"]
+hmm_db=config["hmm_db_path"]
+genomad_db=config["genomad_db_path"]
+diamond_db=config["diamond_db_path"]
+taxonmap_db=config["taxonmap_db_path"]
+taxonnodes_db=config["taxonnodes_db_path"]
+taxonnames_db=config["taxonnames_db_path"]
+megan_db=config["megan_db_path"]
+memory_gb=config["memory_limit_gb"]
+
+samples=os.listdir(config['input_fastq'])   
+
+#########################
+######## RULES ##########
+#########################
+
+rule all:
+    input:
+        expand([ 
+           # cat raw fastq 
+           "{results}/preprocess/catfastq/{sample}.fastq.gz",
+           # nanoplot raw
+           "{results}/preprocess/QC/reports_raw/{sample}",
+           # nanocomp raw
+           "{results}/preprocess/QC/combined_raw",
+           # porechop + fastp
+           "{results}/preprocess/trimmed/tmp/{sample}.fastq.gz",
+           "{results}/preprocess/trimmed/{sample}_trim.fastq.gz",
+           # nanoplot trim
+           "{results}/preprocess/QC/reports_trim/{sample}",
+           # nanocomp trim
+           "{results}/preprocess/QC/combined_trim",
+           # minimap2 + samtools
+           "{results}/preprocess/host_depl/bam_files/{sample}_unal_sort.bam",
+           "{results}/preprocess/host_depl/{sample}_clean.fastq.gz",
+           # nanoplot clean
+           "{results}/preprocess/QC/reports_clean/{sample}",
+           # nanocamp clean
+           "{results}/preprocess/QC/combined_clean",
+           # krakenuniq
+           "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+           "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+           "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report",
+           # centrifuge
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv",
+           "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv",
+           "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv",
+           # kaiju
+           "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv",
+           # krona reads
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona",
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona",
+           "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html",
+           "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html",
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona",
+           "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html",
+           # recentrifuge
+           "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html",
+           "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html",
+           "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html",
+           # krakentools
+           "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean.fastq",
+           # metaflye
+           "{results}/contig_classification_results/assembly/tmp/denovo_assembly/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/draft_assembly/{sample}.fasta",
+           # medaka 
+           "{results}/contig_classification_results/assembly/tmp/polishing/{sample}",
+           "{results}/contig_classification_results/assembly/tmp/polished_assembly/{sample}.fasta",
+           "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta",
+           # viralverify
+           "{results}/contig_classification_results/viralverify_classification/{sample}",
+           # genomad
+           "{results}/contig_classification_results/genomad_classification/{sample}",
+           # diamond blastx
+           "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa",
+           # daa-meganizer
+           "{results}/contig_classification_results/meganizer_logs/{sample}.log",
+           # diamond view
+           "{results}/contig_classification_results/diamond_view/{sample}_diamond_blast_contigs.tab",
+           # krona contigs
+           "{results}/contig_classification_results/krona_visualization/{sample}_krona_contigs.html",
+        ], results=output, sample=samples)
+
+rule catfastq:
+    input:
+        config['input_fastq']+"/{sample}"
+    output:
+        "{results}/preprocess/catfastq/{sample}.fastq.gz"
+    shell:
+        "date && cat {input}/* > {output} && date"
+
+rule nanoplot_raw:
+    input:
+        "{results}/preprocess/catfastq/{sample}.fastq.gz"
+    output:
+        directory("{results}/preprocess/QC/reports_raw/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoPlot -t {threads} --fastq {input} --loglength -o {output} --plots dot && date"
+        
+rule nanocomp_raw:
+    input:
+        fastq=expand("{results}/preprocess/catfastq/{sample}.fastq.gz", results=output, sample=samples),
+    output:
+        directory("{results}/preprocess/QC/combined_raw")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoComp -t {threads} --fastq {input.fastq} -o {output} && date"
+
+rule porechop:
+    input:
+        "{results}/preprocess/catfastq/{sample}.fastq.gz"
+    output:
+        "{results}/preprocess/trimmed/tmp/{sample}.fastq.gz"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && porechop -i {input} -o {output} -t {threads} --min_split_read_size {split_length} && date" 
+
+rule fastp:
+    input:
+        "{results}/preprocess/trimmed/tmp/{sample}.fastq.gz"
+    output:
+        reads="{results}/preprocess/trimmed/{sample}_trim.fastq.gz",
+        html="{results}/preprocess/trimmed/reports/{sample}.html",
+        json="{results}/preprocess/trimmed/reports/{sample}.json"
+    threads: 128           
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && fastp --in1 {input} --out1 {output.reads} --qualified_quality_phred {quality} --unqualified_percent_limit {unqual_limit} --length_required {length} --trim_poly_x --cut_window_size {window_size} -5 {q_mean} -3 {q_mean} --cut_mean_quality {q_mean} --thread {threads} --html {output.html} --json {output.json} && date"
+
+rule nanoplot_trim:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+    output:
+        directory("{results}/preprocess/QC/reports_trim/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoPlot -t {threads} --fastq {input} --loglength -o {output} --plots dot && date"
+
+rule nanocomp_trim:
+    input:
+        expand("{results}/preprocess/trimmed/{sample}_trim.fastq.gz", results=output, sample=samples)
+    output:
+        directory("{results}/preprocess/QC/combined_trim")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoComp -t {threads} --fastq {input} -o {output} && date"
+
+rule minimap2_samtools:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+    output:
+        "{results}/preprocess/host_depl/bam_files/{sample}_unal_sort.bam"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && minimap2 -ax map-ont {ref} {input} -t {threads} | samtools view -uS -f 4 -@ {threads} | samtools sort -@ {threads} > {output} && date"
+
+rule samtools_fastq:
+    input:
+        "{results}/preprocess/host_depl/bam_files/{sample}_unal_sort.bam"
+    output:
+        "{results}/preprocess/host_depl/{sample}_clean.fastq.gz"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && samtools fastq {input} -n -@ {threads} | gzip > {output} && date"
+
+rule nanoplot_clean:
+    input:
+        "{results}/preprocess/host_depl/{sample}_clean.fastq.gz"
+    output:
+        directory("{results}/preprocess/QC/reports_clean/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoPlot -t {threads} --fastq {input} --loglength -o {output} --plots dot && date"
+
+rule nanocomp_clean:
+    input:
+        expand("{results}/preprocess/host_depl/{sample}_clean.fastq.gz", results=output, sample=samples)
+    output:
+        directory("{results}/preprocess/QC/combined_clean")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && NanoComp -t {threads} --fastq {input} -o {output} && date"
+
+rule krakenuniq:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+    output:
+        krakenuniq_class = "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+        unclassified = "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz",
+    threads: 128
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && krakenuniq --db {krakenuniq_path_microbial} --preload-size {memory_gb}G --hll-precision {hll} --report {output.report} --threads {threads} {input} --unclassified-out {output.unclassified} > {output.krakenuniq_class} && date"
+         
+rule edit_krona_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+    shell:
+        "date && cat {input} | cut -f 2,3 > {output} && date"
+       
+rule krona_reads_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krakenuniq.krona"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/krona_visualization/{sample}_krona_reads_krakenuniq.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_krakenuniq:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/recentrifuge_visualization/{sample}_rcf_krakenuniq.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -k {input} -o {output} -s KRAKEN -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule krakenuniq_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/unclassified_reads/{sample}_unclassified.fastq.gz"
+    output:
+        krakenuniq_class = "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/check_unclassified/pavian_reports/{sample}_krakenuniq_unclass.report",
+    threads: 128
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && krakenuniq --db {krakenuniq_path_nt} --preload-size {memory_gb}G --hll-precision {hll} --report {output.report} --threads {threads} {input} > {output.krakenuniq_class} && date"
+          
+rule edit_krona_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+    shell:
+        "date && cat {input} | cut -f 2,3 > {output} && date"
+       
+rule krona_reads_krakenuniq_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krakenuniq_unclass.krona"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krona_visualization/{sample}_krona_reads_krakenuniq_unclass.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_unclassified:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/krakenuniq_taxonomic/{sample}_krakenuniq_unclass.krk"
+    output:
+        "{results}/read_classification_results/krakenuniq_results/check_unclassified/recentrifuge_visualization/{sample}_rcf_krakenuniq_unclass.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -k {input} -o {output} -s KRAKEN -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule centrifuge:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+    output:
+        centrifuge_class = "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv",
+        report = "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge_report.tsv",
+    threads:128 
+    resources: mem_mb=1500000
+    singularity: config['singularity_image_path']+"/centrifuge.sif"
+    shell:
+        "date && centrifuge -q --phred33 -t -k {num_assignments} -p {threads} -x {centrifuge_path_nt} -U {input} --report-file {output.report} -S {output.centrifuge_class} && date"
+
+rule centrifuge_kreport:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/pavian_reports/{sample}_centrifuge_kreport.tsv"
+    singularity: config['singularity_image_path']+"/centrifuge.sif"
+    shell:
+        "date && centrifuge-kreport -x {centrifuge_path_nt} {input} > {output} && date"
+
+rule edit_krona_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+    shell:
+        "date && cat {input} | cut -f 1,3 > {output} && date"
+       
+rule krona_reads_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_centrifuge.krona"
+    output:
+        "{results}/read_classification_results/centrifuge_results/krona_visualization/{sample}_krona_reads_centrifuge.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportTaxonomy {input} -o {output} && date"
+
+rule recentrifuge_centrifuge:
+    input:
+        "{results}/read_classification_results/centrifuge_results/centrifuge_taxonomic/{sample}_centrifuge.tsv"
+    output:
+        "{results}/read_classification_results/centrifuge_results/recentrifuge_visualization/{sample}_rcf_centrifuge.html"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && rcf -n {tax_db} -f {input} -o {output} -s SHEL -y {score} -x {taxid_host} -x {taxid_synthetic} --debug && date"
+
+rule kaiju:
+    input:
+        "{results}/preprocess/trimmed/{sample}_trim.fastq.gz"
+    output:
+        "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+    threads: 128
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && kaiju -t {taxonnodes_db} -f {kaiju_db} -i {input} -z {threads} -a greedy -e {mismathc} -m {match_length} -s {match_score} -E {evalue} -x -o {output} && date"
+
+rule kaiju2krona:
+    input:
+        "{results}/read_classification_results/kaiju_results/kaiju_taxonomic/{sample}_kaiju.tsv"
+    output:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
+    shell:
+        "date && kaiju2krona -t {taxonnodes_db} -n {taxonnames_db} -i {input} -o {output} && date"
+
+rule krona_reads_kaiju:
+    input:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_kaiju.krona"
+    output:
+        "{results}/read_classification_results/kaiju_results/krona_visualization/{sample}_krona_reads_kaiju.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportText {input} -o {output} && date"
+
+rule extract_microbial:
+    input:
+        krakenuniq= "{results}/read_classification_results/krakenuniq_results/krakenuniq_taxonomic/{sample}_krakenuniq.krk",
+        report = "{results}/read_classification_results/krakenuniq_results/pavian_reports/{sample}_krakenuniq.report",
+        reads="{results}/preprocess/trimmed/{sample}_trim.fastq.gz",
+    output:
+        "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean.fastq"
+    singularity: config['singularity_image_path']+"/kraken.sif"
+    shell:
+        "date && extract_kraken_reads.py -k {input.krakenuniq} -s {input.reads} -o {output} -r {input.report} -t {taxid_host} {taxid_synthetic} {taxid_eukaryota} --exclude --append --fastq-output && date"
+
+rule metaflye:
+    input:
+        "{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean.fastq"
+    output:
+        directory("{results}/contig_classification_results/assembly/tmp/denovo_assembly/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
+    shell:
+        "date && flye --nano-raw {input} --meta -t {threads} -o {output} && date"
+
+rule copy_raw_fasta:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/denovo_assembly/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/draft_assembly/{sample}.fasta"
+    shell:
+        "date && cp {input}/assembly.fasta {output} && date"
+
+rule medaka:
+    input:
+        fastq="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean.fastq",
+        assembly="{results}/contig_classification_results/assembly/tmp/draft_assembly/{sample}.fasta"
+    output:
+        directory("{results}/contig_classification_results/assembly/tmp/polishing/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/medaka.sif"
+    shell:
+        "date && medaka_consensus -i {input.fastq} -d {input.assembly} -o {output} -t {threads} -m {model} && date"
+
+rule copy_polished_fasta:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/polishing/{sample}"
+    output:
+        "{results}/contig_classification_results/assembly/tmp/polished_assembly/{sample}.fasta"
+    shell:
+        "date && cp {input}/consensus.fasta {output} && date"
+
+rule seqtk:
+    input:
+        "{results}/contig_classification_results/assembly/tmp/polished_assembly/{sample}.fasta"
+    output:
+        "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinformatics.sif" 
+    shell:
+        "date && seqtk seq -L {min_con} {input} > {output} && date"
+
+rule viralverify:
+    input:
+        "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta"
+    output:
+        directory("{results}/contig_classification_results/viralverify_classification/{sample}")
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && viralverify -t {threads} -p -f {input} -o {output} --hmm {hmm_db} && date"
+
+rule genomad:
+    input:
+        "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta"
+    output:
+        directory("{results}/contig_classification_results/genomad_classification/{sample}")
+    threads: 128    
+    singularity: config['singularity_image_path']+"/genomad.sif"
+    shell:
+        "date && genomad end-to-end --cleanup -t {threads} {input} {output} {genomad_db} && date"
+
+rule diamond_blastx:
+    input:
+        "{results}/contig_classification_results/assembly/final_assembly/{sample}.fasta"
+    output:
+        "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
+
+rule daa_meganizer:
+    input:
+        "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
+    log:
+        "{results}/contig_classification_results/meganizer_logs/{sample}.log"
+    threads: 128
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
+
+rule diamond_view:
+    input:
+        "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
+    output:
+        "{results}/contig_classification_results/diamond_view/{sample}_diamond_blast_contigs.tab"
+    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    shell:
+        "date && diamond view --daa {input} -o {output} && date"
+
+rule krona_contigs:
+    input:
+        "{results}/contig_classification_results/diamond_view/{sample}_diamond_blast_contigs.tab"
+    output:
+        "{results}/contig_classification_results/krona_visualization/{sample}_krona_contigs.html"
+    singularity: config['singularity_image_path']+"/krona.sif"
+    shell:
+        "date && ktImportBLAST {input} -o {output} && date"

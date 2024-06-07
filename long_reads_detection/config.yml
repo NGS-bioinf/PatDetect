@@ -1,0 +1,78 @@
+# Configuration file, where you define input/output path, analysis parameters and path to databases.
+
+# Author: Martin Bosilj
+
+#Set max memory limit in Gb for krakenuniq
+memory_limit_gb: "1000"
+
+# Input directory containing long reads in fastq.gz format (sample names will be assigned by folder name)
+input_fastq: "/short_long_reads_analysis/fastq_pass"
+# Output directory
+output_dir: "/short_long_reads_analysis"
+# Singularity images path
+singularity_image_path: "/singularity_images"
+
+# Quality check & trimming parameter
+unqualified_percent_limit: "40"   #how many percents of bases are allowed to be unqualified (0~100). Default 40 means 40%.
+cut_window_size: "4"   #the window size option shared by cut_front, cut_tail or cut_sliding. Range: 1~1000. Default: 4.
+cut_mean_quality: "7"   #the mean quality requirement option shared by cut_front, cut_tail or cut_sliding. Range: 1~36 default: 20 (Q20).
+quality_score: "7"
+min_length: "200"
+min_split_length: "1000" #middle adapter settings
+
+# Host depletion parameters
+# Reference genome
+reference_genome: "/references/GRCh38_latest_genomic.fasta"
+
+# Assembly & polishing parameters
+# Define medaka model
+medaka_model: "r1041_e82_400bps_sup_v4.2.0"
+# Set minimum contig length
+minimum_contig_length: "300"
+
+# Classification parameters
+# Krakenuniq - Reads classification
+hll-precision: "18"     #precision for HyperLogLog k-mer cardinality estimation, between 10 and 18 (default: 12)
+num_assignments_per_read: "1"     #report upto <int> distinct, primary assignments for each read or pair (k=1 strongly recommended)
+# Bracken aboundance parameters
+classification_read_length: "100"     # read length to get all classifications for (default: 100)
+min_reads_threshold: "0"     # number of reads required PRIOR to abundance estimation to perform reestimation (default: 0)
+# Recentrifuge - Exclude TAXID (e.g.  excluding the reads assigned to humans (taxid 9606))  
+exclude_host_taxid: "9606"
+exclude_synthetic_taxid: "32630"
+# Recentrifuge - Minimum confidence of the classification of a read to pass the quality filter (default: all reads)
+min_score: "25"
+# Kaiju - Number of mismatches allowed in Greedy mode (default: 3)
+mismatch_number: "3"
+# Kaiju - Minimum match length (default: 11)
+min_match_length: "11"
+# Kaiju - Minimum match score in Greedy mode (default: 65)
+min_match_score: "65"
+# Kaiju - Minimum E-value in Greedy mode (default: 0.01)
+min_evalue: "0.01"
+
+# Databases
+# Krakenuniq standard database path
+krakenuniq_db_microbial_path: "/databases/kuniq_microbialdb_minus_kdb.20230808"
+# Krakenuniq nt database path
+krakenuniq_db_nt_path: "/databases/kuniq_nt_db"
+# Centrifuge nt database path
+centrifuge_db_nt_path: "/databases/centrifuge_nt_db"
+# Recentrifuge nodes/names database path
+rcf_tax_db: "/databases/NCBItaxonomy"
+# Kaiju nr_euk database path
+kaiju_db_path: "/databases/kaiju_nr_euk/kaiju_db_nr_euk.fmi"
+# hmm database path
+hmm_db_path: "/databases/HMMdb/nbc_hmms.hmm"
+# genomad database path
+genomad_db_path: "/databases/genomad_db_v1-7"
+# diamond database path
+diamond_db_path: "/databases/DIAMOND-DB/nr.dmnd"
+# taxonmap database path
+taxonmap_db_path: "/databases/NCBItaxonomy/prot.accession2taxid.FULL.gz"
+# taxonnodes database path
+taxonnodes_db_path: "/databases/NCBItaxonomy/nodes.dmp"
+# taxonnames database path
+taxonnames_db_path: "/databases/NCBItaxonomy/names.dmp"
+# megan database path
+megan_db_path: "/databases/MEGAN/megan-map-Feb2022.db"
