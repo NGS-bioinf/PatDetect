@@ -1,6 +1,6 @@
 # Configuration file, where you define input/output path, analysis parameters and path to databases.
 
-# Author: Martin Bosilj
+# Author: mbosilj
 
 #Set max memory limit in Gb for bbmap, krakenuniq, spades, metaspades and metaviralspades
 memory_limit_gb: "1000"
