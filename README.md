@@ -1,5 +1,5 @@
 # PatDetect
-PatDetect is a bioinformatics pipeline that combines various taxonomic classification tools to enable integrated metagenomic analysis of Illumina short paired-end (PE) and Oxford Nanopore Technologies (ONT) long reads.The operating principle is the same as the MetaAll classification methods, but with a larger number of tools and more complex databases, so it is only suitable for operation on HPC.
+PatDetect is a bioinformatics pipeline that combines various taxonomic classification tools to enable integrated metagenomic analysis of Illumina short paired-end (PE) and Oxford Nanopore Technologies (ONT) long reads.The operating principle is the same as the [MetaAll](https://github.com/NGS-bioinf/MetaAll) classification methods, but with a larger number of tools and more complex databases, so it is only suitable for operation on HPC.
 
 ## Installation & Dependencies
 To obtain the scripts, download repository using `git clone` or `wget` and additionally install:
