@@ -12,8 +12,10 @@ To obtain the scripts, download repository using `git clone` or `wget` and addit
 ### Obtain the required databases
 Download required databases:
 - KrakenUniq MicrobialDB collection (https://benlangmead.github.io/aws-indexes/k2)
-- Kaiju nr_euk collection (https://bioinformatics-centre.github.io/kaiju/downloads.html)
+- Kaiju nr_euk database (https://bioinformatics-centre.github.io/kaiju/downloads.html)
+- MetaPhlan 4 database (http://cmprod1.cibio.unitn.it/biobakery4/metaphlan_databases/)
 - virus/chromosome-specific HMMs  (https://figshare.com/ndownloader/files/17904323?private_link=f897d463b31a35ad7bf0)
+- geNomad database (https://zenodo.org/records/8339387)
 - NCBI nt (https://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/nt.gz)
 - NCBI nr (https://ftp.ncbi.nlm.nih.gov/blast/db/FASTA/nr.gz)
 - NCBI prot.accession2taxid (https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.FULL.gz)
@@ -22,4 +24,7 @@ Download required databases:
 
 
   
-**NOTE:** Make sure you have enough disk space. For optimum performance, 1TB RAM and 32 CPUs are required.
+**NOTE:** Make sure you have enough disk space. For optimum performance, 1TB RAM and 32 CPUs are required. 
+To obtain and set up the nt database for the Krakenuniq and Centrifuge tools, follow the instructions below:
+- Krakenuniq (https://github.com/fbreitwieser/krakenuniq/blob/master/README.md)
+- Centrifuge (https://github.com/khyox/recentrifuge/wiki/Centrifuge-nt)
