@@ -21,6 +21,7 @@ Download required databases:
 - NCBI prot.accession2taxid (https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/accession2taxid/prot.accession2taxid.FULL.gz)
 - NCBI names/nodes (https://ftp.ncbi.nih.gov/pub/taxonomy/taxdmp.zip)
 - MEGAN (https://software-ab.cs.uni-tuebingen.de/download/megan6/megan-map-Feb2022.db.zip)
+- Host reference genome (e.g. hg38)
 
 To obtain and set up the nt database for the Krakenuniq and Centrifuge tools, follow the instructions for Krakenuniq (https://github.com/fbreitwieser/krakenuniq/blob/master/README.md) and Centrifuge (https://github.com/khyox/recentrifuge/wiki/Centrifuge-nt).
 
