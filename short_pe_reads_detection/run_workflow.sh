@@ -2,8 +2,8 @@
 
 # A script that controls the flow and order of short PE reads analysis. 
 
-# Maintaince: Martin Bosilj
-# Author: Alen Suljič
+# Maintaince: mbosilj
+# Author: asuljic
 
 # Prerequisites:
 # - Have snakemake installed and placed all singularity images
