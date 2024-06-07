@@ -25,6 +25,4 @@ Download required databases:
 
   
 **NOTE:** Make sure you have enough disk space. For optimum performance, 1TB RAM and 32 CPUs are required. 
-To obtain and set up the nt database for the Krakenuniq and Centrifuge tools, follow the instructions below:
-- Krakenuniq (https://github.com/fbreitwieser/krakenuniq/blob/master/README.md)
-- Centrifuge (https://github.com/khyox/recentrifuge/wiki/Centrifuge-nt)
+To obtain and set up the nt database for the Krakenuniq and Centrifuge tools, follow the instructions for Krakenuniq (https://github.com/fbreitwieser/krakenuniq/blob/master/README.md) and Centrifuge (https://github.com/khyox/recentrifuge/wiki/Centrifuge-nt).
