@@ -445,7 +445,7 @@ rule viralverify:
     output:
         directory("{results}/contig_classification_results/viralverify_classification/{sample}")
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && viralverify -t {threads} -p -f {input} -o {output} --hmm {hmm_db} && date"
 
@@ -455,7 +455,7 @@ rule genomad:
     output:
         directory("{results}/contig_classification_results/genomad_classification/{sample}")
     threads: 128    
-    singularity: config['singularity_image_path']+"/genomad.sif"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
     shell:
         "date && genomad end-to-end --cleanup -t {threads} {input} {output} {genomad_db} && date"
 
@@ -465,7 +465,7 @@ rule diamond_blastx:
     output:
         "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
 
@@ -475,7 +475,7 @@ rule daa_meganizer:
     log:
         "{results}/contig_classification_results/meganizer_logs/{sample}.log"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
 
@@ -484,7 +484,7 @@ rule diamond_view:
         "{results}/contig_classification_results/diamond_blast/{sample}_diamond_blast_contigs.daa"
     output:
         "{results}/contig_classification_results/diamond_view/{sample}_diamond_blast_contigs.tab"
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond view --daa {input} -o {output} && date"
 
