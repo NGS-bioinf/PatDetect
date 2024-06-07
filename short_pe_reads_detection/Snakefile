@@ -973,7 +973,7 @@ rule genomad:
     output:
         directory("{results}/contig_classification_results/genomad_classification_7_methods_threshold_{threshold1}/{sample}")
     threads: 128    
-    singularity: config['singularity_image_path']+"/genomad.sif"
+    singularity: config['singularity_image_path']+"/metagenomics.sif"
     shell:
         "date && genomad end-to-end --cleanup -t {threads} {input} {output} {genomad_db} && date"
 
@@ -983,7 +983,7 @@ rule diamond_blastx_1:
     output:
         "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
 
@@ -993,7 +993,7 @@ rule diamond_blastx_2:
     output:
         "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond blastx -d {diamond_db} --taxonmap {taxonmap_db} --taxonnodes {taxonnodes_db} --taxonnames {taxonnames_db} -q {input} --threads {threads} --block-size 6 --outfmt 100 -o {output} && date"
 
@@ -1003,7 +1003,7 @@ rule daa_meganizer_1:
     log:
         "{results}/contig_classification_results/tmp/short_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold1}.log"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
 
@@ -1013,7 +1013,7 @@ rule daa_meganizer_2:
     log:
         "{results}/contig_classification_results/tmp/long_contigs_{sample}_diamond_blastx_7_methods_threshold_{threshold2}.log"
     threads: 128
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && daa-meganizer --threads {threads} -i {input} --classify -mdb {megan_db} > {log} && date"
 
@@ -1022,7 +1022,7 @@ rule diamond_view_1:
         "{results}/contig_classification_results/short_contigs_diamond_blastx_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.daa"
     output:
         "{results}/contig_classification_results/short_contigs_diamond_view_7_methods_threshold_{threshold1}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold1}.tab"
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond view --daa {input} -o {output} && date"
 
@@ -1031,7 +1031,7 @@ rule diamond_view_2:
         "{results}/contig_classification_results/long_contigs_diamond_blastx_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.daa"
     output:
         "{results}/contig_classification_results/long_contigs_diamond_view_7_methods_threshold_{threshold2}/{sample}_diamond_blastx_contigs_7_methods_threshold_{threshold2}.tab"
-    singularity: config['singularity_image_path']+"/bioinfo_meta.sif"
+    singularity: config['singularity_image_path']+"/bioinformatics.sif"
     shell:
         "date && diamond view --daa {input} -o {output} && date"
 
