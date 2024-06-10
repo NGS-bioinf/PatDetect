@@ -5,8 +5,7 @@ From: ubuntu:22.04
     medaka container
 
 %labels
-    Maintained by mbosilj
-    Contributors: asuljic
+    Authors: asuljic, mbosilj
 
 %environment
     LANG=C.UTF-8
