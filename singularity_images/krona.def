@@ -5,7 +5,7 @@ From: ubuntu:22.04
     krona container
 
 %labels
-    Maintained by asuljic 
+    Author: asuljic
 
 %environment
     LANG=C.UTF-8
