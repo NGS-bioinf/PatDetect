@@ -612,7 +612,7 @@ rule extract_microbial:
         R2="{results}/read_classification_results/krakenuniq_results/microbial_reads/{sample}_clean_R2.fastq",
     singularity: config['singularity_image_path']+"/kraken.sif"
     shell:
-        "date && extract_kraken_reads.py -k {input.krakenuniq} -s {input.R1} -s2 {input.R2} -o {output.R1} -o2 {output.R2} -r {input.report} -t {taxid_host} {taxid_synthetic} {taxid_eukaryota} --exclude --append --fastq-output && date"
+        "date && extract_kraken_reads.py -k {input.krakenuniq} -s {input.R1} -s2 {input.R2} -o {output.R1} -o2 {output.R2} -r {input.report} -t {taxid_host} {taxid_synthetic} --exclude --fastq-output && date"
 
 rule metaphlan:
     input:
